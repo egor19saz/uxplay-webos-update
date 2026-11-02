@@ -7,7 +7,8 @@ jobs:
   build:
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
         with:
           submodules: recursive
 
@@ -32,50 +33,37 @@ jobs:
           export CFLAGS="--sysroot=$SYSROOT -O2 -fPIC"
           export CXXFLAGS="$CFLAGS -D_GLIBCXX_USE_CXX11_ABI=0"
           export LDFLAGS="--sysroot=$SYSROOT"
-          
           mkdir -p .cache/deps build/logs
-          
-          # OpenSSL
           curl -fL --retry 3 "https://github.com/openssl/openssl/releases/download/openssl-3.5.8/openssl-3.5.8.tar.gz" -o .cache/openssl.tar.gz
           tar -xzf .cache/openssl.tar.gz -C .cache/
-          (cd .cache/openssl-3.5.8 && ./Configure linux-armv4 no-shared no-tests no-module no-async --prefix=$PWD/../deps --libdir=lib && make -j$(nproc) build_libs && make install_dev)
-          
-          # libplist
+          cd .cache/openssl-3.5.8 && ./Configure linux-armv4 no-shared no-tests no-module no-async --prefix=$PWD/../deps --libdir=lib && make -j$(nproc) build_libs && make install_dev
+          cd ../..
           curl -fL --retry 3 "https://github.com/libimobiledevice/libplist/releases/download/2.7.0/libplist-2.7.0.tar.bz2" -o .cache/libplist.tar.bz2
           tar -xjf .cache/libplist.tar.bz2 -C .cache/
-          (cd .cache/libplist-2.7.0 && ./configure --host=arm-webos-linux-gnueabi --prefix=$PWD/../deps --disable-shared --enable-static --without-cython --without-tests CC=$CC CXX=$CXX CFLAGS="$CFLAGS" CXXFLAGS="$CXXFLAGS" LDFLAGS="$LDFLAGS" && make -j$(nproc) && make install)
-          
-          # FFmpeg
+          cd .cache/libplist-2.7.0 && ./configure --host=arm-webos-linux-gnueabi --prefix=$PWD/../deps --disable-shared --enable-static --without-cython --without-tests CC=$CC CXX=$CXX CFLAGS="$CFLAGS" CXXFLAGS="$CXXFLAGS" LDFLAGS="$LDFLAGS" && make -j$(nproc) && make install
+          cd ../..
           curl -fL --retry 3 "https://ffmpeg.org/releases/ffmpeg-8.1.2.tar.xz" -o .cache/ffmpeg.tar.xz
           tar -xJf .cache/ffmpeg.tar.xz -C .cache/
-          (cd .cache/ffmpeg-8.1.2 && ./configure --prefix=$PWD/../deps --arch=arm --cpu=cortex-a9 --target-os=linux --enable-cross-compile --sysroot=$SYSROOT --extra-cflags="-Dstatic_assert=_Static_assert" --cross-prefix=arm-webos-linux-gnueabi- --disable-everything --disable-programs --disable-doc --disable-shared --enable-static --enable-pic --disable-autodetect --disable-network --disable-avdevice --disable-avformat --disable-avfilter --disable-swscale --enable-avcodec --enable-avutil --enable-swresample --enable-decoder=aac,alac,pcm_s16le --enable-parser=h264 --enable-small --disable-debug && make -j$(nproc) && make install)
+          cd .cache/ffmpeg-8.1.2 && ./configure --prefix=$PWD/../deps --arch=arm --cpu=cortex-a9 --target-os=linux --enable-cross-compile --sysroot=$SYSROOT --extra-cflags="-Dstatic_assert=_Static_assert" --cross-prefix=arm-webos-linux-gnueabi- --disable-everything --disable-programs --disable-doc --disable-shared --enable-static --enable-pic --disable-autodetect --disable-network --disable-avdevice --disable-avformat --disable-avfilter --disable-swscale --enable-avcodec --enable-avutil --enable-swresample --enable-decoder=aac,alac,pcm_s16le --enable-parser=h264 --enable-small --disable-debug && make -j$(nproc) && make install
 
       - name: Build UxPlay webOS
         run: |
           export PATH="/opt/webos-ndk/1.0.g/sysroots/x86_64-webossdk-linux/usr/bin:/opt/webos-ndk/1.0.g/sysroots/x86_64-webossdk-linux/usr/bin/arm-webos-linux-gnueabi:$PATH"
-          
           git clone --depth 1 https://github.com/FDH2/UxPlay.git vendor/uxplay
-          
           cat > build/toolchain.cmake << 'EOF'
-set(CMAKE_SYSTEM_NAME Linux)
-set(CMAKE_SYSTEM_PROCESSOR arm)
-set(CMAKE_C_COMPILER arm-webos-linux-gnueabi-gcc)
-set(CMAKE_CXX_COMPILER arm-webos-linux-gnueabi-g++)
-set(CMAKE_AR arm-webos-linux-gnueabi-ar)
-set(CMAKE_RANLIB arm-webos-linux-gnueabi-ranlib)
-set(CMAKE_SYSROOT /opt/webos-ndk/1.0.g/sysroots/armv7a-neon-webos-linux-gnueabi)
-set(CMAKE_FIND_ROOT_PATH /opt/webos-ndk/1.0.g/sysroots/armv7a-neon-webos-linux-gnueabi)
-set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
-set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
-set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
-EOF
-          
-          cmake -S . -B build -G Ninja \
-            -DCMAKE_TOOLCHAIN_FILE=$PWD/build/toolchain.cmake \
-            -DBUILD_RECEIVER=ON \
-            -DDEPS=$PWD/.cache/deps \
-            -DCMAKE_BUILD_TYPE=Release
-          
+          set(CMAKE_SYSTEM_NAME Linux)
+          set(CMAKE_SYSTEM_PROCESSOR arm)
+          set(CMAKE_C_COMPILER arm-webos-linux-gnueabi-gcc)
+          set(CMAKE_CXX_COMPILER arm-webos-linux-gnueabi-g++)
+          set(CMAKE_AR arm-webos-linux-gnueabi-ar)
+          set(CMAKE_RANLIB arm-webos-linux-gnueabi-ranlib)
+          set(CMAKE_SYSROOT /opt/webos-ndk/1.0.g/sysroots/armv7a-neon-webos-linux-gnueabi)
+          set(CMAKE_FIND_ROOT_PATH /opt/webos-ndk/1.0.g/sysroots/armv7a-neon-webos-linux-gnueabi)
+          set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
+          set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
+          set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
+          EOF
+          cmake -S . -B build -G Ninja -DCMAKE_TOOLCHAIN_FILE=$PWD/build/toolchain.cmake -DBUILD_RECEIVER=ON -DDEPS=$PWD/.cache/deps -DCMAKE_BUILD_TYPE=Release
           cmake --build build --parallel $(nproc)
 
       - name: Package IPK
@@ -86,20 +74,17 @@ EOF
           cp build/uxplay-webos build/app/
           cp /opt/webos-ndk/1.0.g/sysroots/armv7a-neon-webos-linux-gnueabi/usr/lib/libstdc++.so.6 build/app/lib/ 2>/dev/null || true
           arm-webos-linux-gnueabi-strip build/app/uxplay-webos 2>/dev/null || true
-          
-          # Create IPK
           mkdir -p dist/control
           echo "Package: com.github.danlflh.uxplaywebos" > dist/control/control
           echo "Version: 0.1.0" >> dist/control/control
           echo "Architecture: arm" >> dist/control/control
           echo "Maintainer: UxPlay webOS" >> dist/control/control
           echo "Description: AirPlay mirroring receiver for webOS" >> dist/control/control
-          
           tar -czf dist/control.tar.gz -C dist/control .
           tar -czf dist/data.tar.gz -C build/app .
           echo "2.0" > dist/debian-binary
-          (cd dist && ar r com.github.danlflh.uxplaywebos_0.1.0_arm.ipk debian-binary control.tar.gz data.tar.gz)
-          rm -rf dist/control dist/control.tar.gz dist/data.tar.gz dist/debian-binary
+          cd dist && ar r com.github.danlflh.uxplaywebos_0.1.0_arm.ipk debian-binary control.tar.gz data.tar.gz
+          rm -rf control control.tar.gz data.tar.gz debian-binary
 
       - name: Upload IPK
         uses: actions/upload-artifact@v4
